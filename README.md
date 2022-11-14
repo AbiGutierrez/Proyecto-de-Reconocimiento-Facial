@@ -10,47 +10,21 @@ El conjunto de datos de atributos de CelebFaces (CelebA) es un conjunto de datos
 - 202,599 número de imágenes de rostros
 - 40 anotaciones de atributos binarios por imagen.
 
-Se procesan los datos de las base descargada (CelebA), para el preprocesamiento de los datos primero se eliminaron los dobles espacios en el dataframe debido a que 
-estaban ocasionando errores en el momento de leer los datos. 
+Se procesan los datos de las base descargada (CelebA), para el preprocesamiento, se definio una función y se redimensionaron las imagenes a un tamaño de 192x192, se normalizo la intensidad de los pixeles y se junto cada imagen con su respectiva etiqueta. 
 
 ```
-with open('list_attr_celeba.txt', 'r') as f:
-
-    print("skipping : " + f.readline())    #salatarnos la primera fila
-    
-    print("skipping headers :" + f.readline()) #saltarnos la segunda fila la de los encabezados
-        
-    with open('list_attr_celeba_prepared.txt' , 'w') as newf:
-            
-    for line in f:
-                    
-    new_line = ' '.join(line.split())  #separa las palabras de una frase e ilimina los espacios 
-                                
-    newf.write(new_line)
-                                            
-    newf.write('\n')
-```
-    
-
-
-Asi el dataFrame queda separado por comas, se procede juntar cada imagen con sus respectivas etiquetas de caracteristicas. 
-```
+#procesar imagenes
+path_to_images = 'img_align_celeba/'
 def process_file(file_name, attributes):
-
     image = tf.io.read_file(path_to_images + file_name)
-    
     image = tf.image.decode_jpeg(image, channels=3)
-        
     image = tf.image.resize(image, [192, 192])
-            
     image /= 255.0
-                
     return image, attributes
-                    
-images_labeled = data.map(process_file)
 
+images_labeled = data.map(process_file) 
+``` 
 
-```
 **Red neuronal de características**
 
 Se utilizo una red neuronal convolucional, la base de datos contiene 40 características por lo tanto son 40 clases las que se clasificaron.
@@ -135,8 +109,158 @@ print("images generadas", num_images)
 
 ```
 
+Y de la misma manera para los datos de testing, solo que en este caso fueron 
+```
+new_imageTest_folder = 'new_imageTest'
+cantidad_de_imagenes = 2
 
-### 🔧
+try:
+    os.mkdir(new_imageTest_folder)
+except:
+    print("")
+    
+train_datagen = ImageDataGenerator(rotation_range=20, zoom_range=0.2,
+                                   width_shift_range=0.1, 
+                                   height_shift_range=0.1, 
+                                   horizontal_flip=True, 
+                                   vertical_flip=False)
+
+data_path =  "C:/Users/abigu/Documents/codigos/optativa redes neuronales/proyecto de reconocimiento facial/fotosAbiTest"
+data_dir_list = os.listdir(data_path)
+
+width_sahape, height_shape = 192, 192
+
+i=0
+num_images=0
+for image_file in data_dir_list:
+    img_list=os.listdir(data_path)
+
+    img_path = data_path+'/'+image_file
+    
+    imge=load_img(img_path)
+    #imge=load_img(img_path)
+    
+    #imge=tf.image.resize(tf.keras.utils.img_to_array(imge), (width_sahape, height_shape), 
+     #               interpolation = cv2.INTER_AREA)
+    imge=tf.image.resize(tf.keras.utils.img_to_array(imge), (width_sahape, height_shape))
+    #imge=cv2.resize(image.img_to_array(imge), (width_sahape, height_shape), 
+     #               interpolation = cv2.INTER_AREA)
+    x=imge/255.
+    x=np.expand_dims(x, axis=0)
+    t=1
+    for output_batch in train_datagen.flow(x, batch_size=1):
+        #a=image.img_to_array(output_batch[0])
+        a=tf.keras.utils.img_to_array(output_batch[0])
+        imagen=output_batch[0,:,:]*255.
+        imgfinal = cv2.cvtColor(imagen, cv2.COLOR_RGB2BGR)
+        cv2.imwrite(new_imageTest_folder+"/%i%i.jpg"%(i,t), imgfinal)
+        t+=1
+        
+        num_images+=1
+        if t>cantidad_de_imagenes:
+            break
+    i+=1
+    
+print("images generadas", num_images)
+
+```
+Las imagenes se generaron, sin embargo guardar imagenes en disco no era lo más eficiente, por lo tanto se opto por generar imagenes duarante el entrenamiento de las ultimas de las capas de la red de caracteristicas.
+
+```
+ih = 192
+epochs = 30
+batch_size =30
+
+train_data_dir = 'C:/Users/abigu/Documents/codigos/optativa redes neuronales/proyecto de reconocimiento facial/fotosAbiTrain'
+test_data_dir = 'C:/Users/abigu/Documents/codigos/optativa redes neuronales/proyecto de reconocimiento facial/fotosAbiTest'
+#train_data_dir = 'fotosAbiTrain' 
+#test_data_dir = 'fotosAbiTest'
+nuevas_imagenes = 'C:/Users/abigu/Documents/codigos/optativa redes neuronales/proyecto de reconocimiento facial/nuevas_imagenes'
+   
+train_datagen = ImageDataGenerator(rotation_range=20, zoom_range=0.2,
+                                   width_shift_range=0.1, 
+                                   height_shift_range=0.1, 
+                                   horizontal_flip=True, 
+                                   vertical_flip=False, 
+                                   preprocessing_function=(preprocess_input))
+
+test_datagen = ImageDataGenerator(rotation_range=20, zoom_range=0.2,
+                                   width_shift_range=0.1, 
+                                   height_shift_range=0.1, 
+                                   horizontal_flip=True, 
+                                   vertical_flip=False, 
+                                   preprocessing_function=(preprocess_input))
+
+train_generator = train_datagen.flow_from_directory(train_data_dir,
+    target_size=(iw, ih), color_mode="rgb",
+    batch_size=batch_size,
+    #save_to_dir='nuevasImagenesTrain', save_format='JPG',
+    class_mode='binary')
+
+test_generator = test_datagen.flow_from_directory(test_data_dir,
+    target_size=(iw, ih), color_mode="rgb",
+    batch_size=batch_size,
+    #save_to_dir='nuevasImagenesTest', save_format='JPG',
+    class_mode='binary')
+```
+
+## Problemas encontrados 
+
+- Lectura del dataframe
+- Problema en el entrenamiento de la red caracteristicas 
+
+**Solución de problemas**
+
+En el preprocesamiento los datos se eliminaron los dobles espacios en el dataframe debido a que estaban ocasionando errores en el momento de leer los datos. 
+```
+#eliminar el dodle espacio 
+with open('list_attr_celeba.txt', 'r') as f:
+    print("skipping : " + f.readline())    #salatarnos la primera fila
+    print("skipping headers :" + f.readline()) #saltarnos la segunda fila la de los encabezados
+    with open('list_attr_celeba_prepared.txt' , 'w') as newf:
+        for line in f:
+            new_line = ' '.join(line.split())  #separa las palabras de una frase e ilimina los espacios 
+            newf.write(new_line)
+            newf.write('\n')  #simbolo de la nueva linea
+```
+Los datos se pasaron a un tensor
+```
+files = tf.data.Dataset.from_tensor_slices(df[0])
+attributes = tf.data.Dataset.from_tensor_slices(df.iloc[:,1:].to_numpy())
+data = tf.data.Dataset.zip((files, attributes))
+```
+De esta manera se solucionaron los problemas para la elaboración del dataframe.
+
+Una vez establecido el modelo de la red, se procedería a entrenar pero se encontro el siguiente error 
+```
+ValueError: Input 0 of layer "sequential_4" is incompatible with the layer: expected shape=(None, 192, 192, 3), found shape=(192, 192, 3)
+```
+Se soluciono implementando la función batch a nuestros datos de entrenamiento 
+```
+batch_size = 50
+images_labeled = data.map(process_file) 
+images_labeled = images_labeled.batch(batch_size)
+
+```
+
+Sin embargo una vez solucionado ese problema, se procedio a entrenar la red pero esta no aprendio, se obtuvo una función de costo negativa y la red tenia una accuracy muy pequeño y se mantenia en el mismo valor.
+
+```
+Epoch 77/80
+1/1 [==============================] - 1s 862ms/step - loss: nan - accuracy: 0.1220 - val_loss: nan - val_accuracy: 0.1220
+Epoch 78/80
+1/1 [==============================] - 1s 925ms/step - loss: nan - accuracy: 0.1220 - val_loss: nan - val_accuracy: 0.1220
+Epoch 79/80
+1/1 [==============================] - 1s 847ms/step - loss: nan - accuracy: 0.1220 - val_loss: nan - val_accuracy: 0.1220
+Epoch 80/80
+1/1 [==============================] - 1s 835ms/step - loss: nan - accuracy: 0.1220 - val_loss: nan - val_accuracy: 0.1220
+```
+![Figure1](https://user-images.githubusercontent.com/91716462/201557723-a690fe92-8874-46a8-9343-e8a77b087f4b.png)
+
+Como se puede ver no hubo aprendizaje, se consideraron varias posibilidades que estuvieran provocando el error y tambien intentaron varias opciones para solucionarlo, que a continuación se describen:
+- Que solo estuviera considerandose la cantidad del minibatch para entrenar 
+- el mini batch muy pequeño
+- 
 
 
 
