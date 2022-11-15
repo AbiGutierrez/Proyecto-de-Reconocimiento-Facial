@@ -10,6 +10,23 @@ El conjunto de datos de atributos de CelebFaces (CelebA) es un conjunto de datos
 - 202,599 número de imágenes de rostros
 - 40 anotaciones de atributos binarios por imagen.
 
+Se cargo el dataframe 
+```
+with open('list_attr_celeba.txt', 'r') as f:
+    print("skipping : " + f.readline())    #salatarnos la primera fila
+    print("skipping headers :" + f.readline()) #saltarnos la segunda fila la de los encabezados
+    with open('list_attr_celeba_prepared.txt' , 'w') as newf:
+        for line in f:
+            new_line = ' '.join(line.split())  #separa las palabras de una frase e ilimina los espacios 
+            newf.write(new_line)
+            newf.write('\n')  #simbolo de la nueva linea
+          
+#carga de base de datos
+
+df = pd.read_csv('list_attr_celeba_prepared.txt', sep=' ', header=None)  #dataframe
+df = df.replace({-1:0})
+```
+
 Se procesan los datos de las base descargada (CelebA), para el preprocesamiento, se definio una función y se redimensionaron las imagenes a un tamaño de 192x192, se normalizo la intensidad de los pixeles y se junto cada imagen con su respectiva etiqueta. 
 
 ```
@@ -32,10 +49,19 @@ Se utilizo una red neuronal convolucional, la base de datos contiene 40 caracter
 **Modelo de la red**
 ```
 model = Sequential()
-model.add(Conv2D(32, (3, 3), input_shape=(192, 192, 3)))
+model.add(Conv2D(16, (3, 3), input_shape=(192, 192, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(16, (3, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Conv2D(32, (3, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(32, (3, 3)))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(64, (3, 3)))
 model.add(Activation('relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Conv2D(64, (3, 3)))
@@ -207,6 +233,7 @@ test_generator = test_datagen.flow_from_directory(test_data_dir,
 ## Problemas encontrados 
 
 - Lectura del dataframe
+- El Dataframe contenia (-1)
 - Problema en el entrenamiento de la red caracteristicas 
 
 **Solución de problemas**
@@ -231,6 +258,12 @@ data = tf.data.Dataset.zip((files, attributes))
 ```
 De esta manera se solucionaron los problemas para la elaboración del dataframe.
 
+Para la eliminación de los (-1) en dataframe, que tambien se considero que estaba ocasionando errores en el entrenamiento, se ultilizo el siguiente comando de la libreria pandas
+```
+df = pd.read_csv('list_attr_celeba_prepared.txt', sep=' ', header=None)  #dataframe
+df = df.replace({-1:0}) #eliminación de los (-1)
+```
+
 Una vez establecido el modelo de la red, se procedería a entrenar pero se encontro el siguiente error 
 ```
 ValueError: Input 0 of layer "sequential_4" is incompatible with the layer: expected shape=(None, 192, 192, 3), found shape=(192, 192, 3)
@@ -243,7 +276,7 @@ images_labeled = images_labeled.batch(batch_size)
 
 ```
 
-Sin embargo una vez solucionado ese problema, se procedio a entrenar la red pero esta no aprendio, se obtuvo una función de costo negativa y la red tenia una accuracy muy pequeño y se mantenia en el mismo valor.
+Sin embargo una vez solucionado ese problema, se procedio a entrenar la red pero esta no obtuvo aprendizaje, se obtuvo una función de costo negativa y la red tenia una accuracy muy pequeño y se mantenia en el mismo valor.
 
 ```
 Epoch 77/80
@@ -259,10 +292,17 @@ Epoch 80/80
 
 Como se puede ver no hubo aprendizaje, se consideraron varias posibilidades que estuvieran provocando el error y tambien intentaron varias opciones para solucionarlo, que a continuación se describen:
 - Que solo estuviera considerandose la cantidad del minibatch para entrenar 
-- el mini batch muy pequeño
-- 
+- El mini batch muy pequeño
+- Los (-1) del dataframe
+- Tomar en una función (images, attributes), como (images_labeled), se separaron y se redefinieron como:
+```
+image, attributes = data.map(process_file)
+```
+- Función de costo, se probaron funciones dierentes: categorical_crossentropy, mse
+- Optimizador, se utilizaron los siguientes: SGD, adadelta, Adam, RMSprop
+- Diseño de la red, se probo una red prediseñada llamada Xception, se obtuvo el mismo resultado
 
-
+De esta forma se obtuvo un resultado negativo y no se pudo proseguir con la elaboración de la red de reconocimiento facial. Se sigue buscando el error que ocasiona el loss:nan e impletando alguna solución efectiva.
 
 ## Ejecutando las pruebas ⚙️
 
