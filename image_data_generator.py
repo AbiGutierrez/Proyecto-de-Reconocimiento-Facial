@@ -70,7 +70,7 @@ print("images generadas", num_images)
 
 #--------------------------------------------------------------------
 
-'''new_imageTest_folder = 'new_imageTest'
+new_imageTest_folder = 'new_imageTest'
 cantidad_de_imagenes = 2
 
 try:
@@ -120,4 +120,4 @@ for image_file in data_dir_list:
             break
     i+=1
     
-print("images generadas", num_images)'''
+print("images generadas", num_images)
